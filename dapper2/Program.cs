@@ -9,6 +9,12 @@ class Teacher
     public string Email{get;set;}
 }
 
+// record:
+//   har alltid en default-konstruktor "av sig självt"
+//   kan ej ha metoder
+//   =-operatorn är överlagrad och ger nya kopior istället för referenser
+record StudentAndGrade(string Student, string Course, DateTime EnrollmentDate, int Grade, string Grader);
+
 class Program
 {
     static string connectionString = File.ReadLines("../connectionstring.txt").First(); 
@@ -20,6 +26,7 @@ class Program
             Console.WriteLine();
             Console.WriteLine("1. Visa alla lärare");
             Console.WriteLine("2. Lägg till lärare");
+            Console.WriteLine("3. Visa alla registrerade elever och deras betyg");
             Console.WriteLine("0. Avsluta");
             Console.Write("Val: ");
             string choice = Console.ReadLine();
@@ -43,6 +50,14 @@ class Program
                     string email = Console.ReadLine();
                     AddTeacher(name, email);
                     break;
+                case "3":
+                    IEnumerable<StudentAndGrade> studentAndGrades = SelectStudentsAndGrade();
+                    foreach (StudentAndGrade sg in studentAndGrades)
+                    {
+                        Console.WriteLine($"Student: {sg.Student}, Kurs: {sg.Course}, Betyg: {sg.Grade}, Registerringdatum: {sg.EnrollmentDate}, Lärare: {sg.Grader}");
+                    } 
+                    break;
+                
                 case "0":
                     return;
                 default:
@@ -74,4 +89,26 @@ class Program
         // Execute returnerar en in
         connection.Execute(query, new {Name = name, Email = email}); 
     }
+
+    static IEnumerable<StudentAndGrade> SelectStudentsAndGrade()
+    {
+        // Skapa en connection:
+        using IDbConnection connection = new MySqlConnection(connectionString);
+        
+        // Gör en SELECT-qurey med hjälp av dappermetoden Query mot servern.
+        // Objektet teachers finns sedan lokalt i RAM
+        return connection.Query<StudentAndGrade>("""
+                            select s.Name as Student,
+                            c.Name as Course,
+                            e.EnrollmentDate,
+                            e.Grade,
+                            t.Name as Grader
+                            from Enrollment e
+                            inner join Student s on s.Id = e.StudentId
+                            inner join Course c on c.Id = e.CourseId
+                            left join Teacher t on t.Id = c.TeacherId
+                            order by s.Name, c.Name;
+                            """);
+    }
+    
 }
